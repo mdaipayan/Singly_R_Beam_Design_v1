@@ -670,27 +670,31 @@ def design_beam(inp: dict):
 from fpdf import FPDF
 
 def generate_pdf_report(report_text, b, D, fck, fy):
-    """Converts the text report into a formatted PDF bytearray."""
+    # Initialize FPDF2
     pdf = FPDF()
     pdf.add_page()
     
-    # Title formatting
-    pdf.set_font("Arial", style='B', size=14)
-    pdf.set_text_color(43, 108, 176) # A nice blue color for the header
-    pdf.cell(0, 10, "RCC Beam Design Report (IS 456:2000)", ln=True, align='C')
+    # 1. Register and set the Unicode font
+    # Ensure 'DejaVuSans.ttf' is uploaded to your repo
+    pdf.add_font("DejaVu", "", "DejaVuSans.ttf")
+    pdf.set_font("DejaVu", size=10)
+    
+    # 2. Set title
+    pdf.set_font("DejaVu", 'B', 14)
+    pdf.cell(0, 10, txt="RCC Beam Design Report (IS 456:2000)", ln=True, align='C')
     pdf.ln(5)
     
-    # Body formatting - use a monospaced font to keep your report alignment intact
-    pdf.set_font("Courier", size=9)
-    pdf.set_text_color(45, 55, 72)
+    # 3. Add the report body
+    pdf.set_font("DejaVu", size=9)
     
-    # Write the report line by line
+    # Using multi_cell handles long lines and UTF-8 characters automatically
     for line in report_text.split('\n'):
-        # pdf.cell writes a single line. 0 means full width, 5 is the line height
-        pdf.cell(0, 5, txt=line, ln=True)
+        # fpdf2 automatically handles characters like φ, τ, and ✓ 
+        # if the font supports them
+        pdf.multi_cell(0, 5, txt=line)
         
-    # Output the PDF as bytes
-    return bytes(pdf.output())
+    # Return the bytes for the Streamlit download button
+    return pdf.output()
   
 def main():
     st.set_page_config(
