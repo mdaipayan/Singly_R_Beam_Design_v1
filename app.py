@@ -759,6 +759,7 @@ def build_latex_report(report_text: str, inp: dict, results: dict) -> str:
     return rf"""\documentclass[11pt]{{article}}
 \usepackage[margin=1in]{{geometry}}
 \usepackage{{amsmath}}
+\usepackage{{amssymb}}
 \usepackage{{array}}
 \usepackage{{booktabs}}
 \usepackage[T1]{{fontenc}}
@@ -785,18 +786,30 @@ Generated on {latex_safe_ascii(str(datetime.date.today()))}
 \toprule
 Parameter & Value \\
 \midrule
-Effective span, $L$ & {inp['span']:.2f} m \\
-Dead load, $w_{{DL}}$ & {inp['w_DL']:.2f} kN/m \\
-Live load, $w_{{LL}}$ & {inp['w_LL']:.2f} kN/m \\
-Concrete grade & M{inp['fck']} \\
-Steel grade & Fe{inp['fy']} \\
-Beam width, $b$ & {inp['b']} mm \\
-Overall depth, $D$ & {inp['D']} mm \\
-Clear cover & {inp['cover']} mm \\
-Main bar diameter & {inp['bar_dia']} mm \\
-Stirrup diameter & {inp['stir_dia']} mm \\
+Effective span, $L$ & ${inp['span']:.2f}\,\mathrm{{m}}$ \\
+Dead load, $w_{{DL}}$ & ${inp['w_DL']:.2f}\,\mathrm{{kN/m}}$ \\
+Live load, $w_{{LL}}$ & ${inp['w_LL']:.2f}\,\mathrm{{kN/m}}$ \\
+Concrete grade, $f_{{ck}}$ & $\mathrm{{M}}{inp['fck']} \; (f_{{ck}} = {inp['fck']}\,\mathrm{{N/mm^2}})$ \\
+Steel grade, $f_y$ & $\mathrm{{Fe}}{inp['fy']} \; (f_y = {inp['fy']}\,\mathrm{{N/mm^2}})$ \\
+Beam width, $b$ & ${inp['b']}\,\mathrm{{mm}}$ \\
+Overall depth, $D$ & ${inp['D']}\,\mathrm{{mm}}$ \\
+Clear cover, $c'$ & ${inp['cover']}\,\mathrm{{mm}}$ \\
+Main bar diameter, $\phi$ & ${inp['bar_dia']}\,\mathrm{{mm}}$ \\
+Stirrup diameter, $\phi_v$ & ${inp['stir_dia']}\,\mathrm{{mm}}$ \\
 \bottomrule
 \end{{tabular}}
+
+\section*{{Governing Equations}}
+
+\begin{{align*}}
+d &= D - c' - \phi_v - \frac{{\phi}}{{2}} \\
+w &= w_{{DL}} + w_{{LL}} \\
+M_u &= 1.5\left(\frac{{wL^2}}{{8}}\right) \\
+x_{{u,\max}} &= \left(\frac{{x_{{u,\max}}}}{{d}}\right)d \\
+M_{{u,\mathrm{{lim}}}} &= 0.36 f_{{ck}} b x_{{u,\max}}\left(d - 0.42x_{{u,\max}}\right) \\
+\tau_v &= \frac{{V_u}}{{bd}} \\
+p_t &= \frac{{100A_{{st}}}}{{bd}}
+\end{{align*}}
 
 \section*{{Design Summary}}
 
@@ -804,19 +817,33 @@ Stirrup diameter & {inp['stir_dia']} mm \\
 \toprule
 Item & Value \\
 \midrule
-Effective depth, $d$ & {results['d']:.2f} mm \\
-Factored moment, $M_u$ & {results['Mu'] / 1.0e6:.3f} kN.m \\
-Limiting moment, $M_{{u,lim}}$ & {results['Mu_lim'] / 1.0e6:.3f} kN.m \\
+Effective depth, $d$ & ${results['d']:.2f}\,\mathrm{{mm}}$ \\
+Factored moment, $M_u$ & ${results['Mu'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}}$ \\
+Limiting moment, $M_{{u,\mathrm{{lim}}}}$ & ${results['Mu_lim'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}}$ \\
 Utilization ratio & {utilization:.1f}\% \\
-Required steel, $A_{{st}}$ & {results['Ast_req']:.2f} mm$^2$ \\
-Provided steel & {results['Ast_prov']:.2f} mm$^2$ \\
-Tension bars & {results['n_bars']} bars of {results['bar_dia']} mm dia \\
-Neutral axis depth, $x_u$ & {results['xu_act']:.2f} mm \\
+Required steel, $A_{{st,req}}$ & ${results['Ast_req']:.2f}\,\mathrm{{mm^2}}$ \\
+Provided steel, $A_{{st,prov}}$ & ${results['Ast_prov']:.2f}\,\mathrm{{mm^2}}$ \\
+Tension reinforcement & ${results['n_bars']}~\mathrm{{bars}}~of~{inp['bar_dia']}\,\mathrm{{mm}}~\phi$ \\
+Neutral axis depth, $x_u$ & ${results['xu_act']:.2f}\,\mathrm{{mm}}$ \\
+Nominal shear stress, $\tau_v$ & ${results['tau_v']:.3f}\,\mathrm{{N/mm^2}}$ \\
+Concrete shear strength, $\tau_c$ & ${results['tau_c']:.3f}\,\mathrm{{N/mm^2}}$ \\
 Shear reinforcement & {latex_safe_ascii(results['shear_result'])} \\
 Deflection check & {status} \\
 Actual / permissible $L/d$ & {results['ld_actual']:.2f} / {results['ld_perm']:.2f} \\
 \bottomrule
 \end{{tabular}}
+
+\section*{{Design Expressions}}
+
+\begin{{align*}}
+A_{{st,req}} &= {results['Ast_req']:.2f}\,\mathrm{{mm^2}} \\
+A_{{st,prov}} &= {results['Ast_prov']:.2f}\,\mathrm{{mm^2}} \\
+M_u &= {results['Mu'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}} \\
+M_{{u,\mathrm{{lim}}}} &= {results['Mu_lim'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}} \\
+x_u &= {results['xu_act']:.2f}\,\mathrm{{mm}} \\
+\tau_v &= {results['tau_v']:.3f}\,\mathrm{{N/mm^2}} \\
+\tau_c &= {results['tau_c']:.3f}\,\mathrm{{N/mm^2}}
+\end{{align*}}
 
 \section*{{Detailed Calculation Log}}
 
