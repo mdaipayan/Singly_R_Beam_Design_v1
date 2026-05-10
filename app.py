@@ -773,18 +773,47 @@ def normalize_report_text(report_text: str) -> str:
     return normalized
 
 
+LATEX_SYMBOL_PLACEHOLDERS = [
+    ("ϕᵥ", "LATEXPHIVTOKEN"),
+    ("φᵥ", "LATEXPHIVTOKEN"),
+    ("ϕv", "LATEXPHIVTOKEN"),
+    ("φv", "LATEXPHIVTOKEN"),
+    ("γ", "LATEXGAMMATOKEN"),
+    ("ϕ", "LATEXP HITOKEN".replace(" ", "")),
+    ("φ", "LATEXP HITOKEN".replace(" ", "")),
+    ("π", "LATEXPITOKEN"),
+]
+
+LATEX_SYMBOL_MACROS = {
+    "LATEXGAMMATOKEN": r"\ensuremath{\gamma}",
+    "LATEXPHITOKEN": r"\ensuremath{\phi}",
+    "LATEXPHIVTOKEN": r"\ensuremath{\phi_v}",
+    "LATEXPITOKEN": r"\ensuremath{\pi}",
+}
+
+
 def latex_safe_ascii(text: str) -> str:
     """Normalize Unicode symbols and escape LaTeX special characters."""
     return escape_latex(normalize_report_text(text))
+
+
+def latex_safe_symbol_text(text: str) -> str:
+    """Escape report text for LaTeX while preserving selected symbols."""
+    prepared = text
+    for src, placeholder in LATEX_SYMBOL_PLACEHOLDERS:
+        prepared = prepared.replace(src, placeholder)
+    escaped = escape_latex(normalize_report_text(prepared))
+    for placeholder, macro in LATEX_SYMBOL_MACROS.items():
+        escaped = escaped.replace(placeholder, macro)
+    return escaped
 
 
 def build_latex_report(report_text: str, inp: dict, results: dict) -> str:
     """Generate a standalone LaTeX report source for the beam design."""
     status = "PASS" if results["deflection_ok"] else "FAIL"
     utilization = results["Mu"] / results["Mu_lim"] * 100
-    detailed_report = normalize_report_text(report_text)
-    status_color = "green!50!black" if results["deflection_ok"] else "red!70!black"
-    shear_result = latex_safe_ascii(results["shear_result"])
+    detailed_report = latex_safe_symbol_text(report_text)
+    shear_result = latex_safe_symbol_text(results["shear_result"])
 
     return rf"""\documentclass[11pt]{{article}}
 \usepackage[margin=1in]{{geometry}}
@@ -797,6 +826,7 @@ def build_latex_report(report_text: str, inp: dict, results: dict) -> str:
 \usepackage{{lmodern}}
 \usepackage{{longtable}}
 \usepackage{{fancyvrb}}
+\usepackage{{alltt}}
 
 \setlength{{\parindent}}{{0pt}}
 \setlength{{\parskip}}{{0.6\baselineskip}}
@@ -857,7 +887,7 @@ Tension reinforcement & ${results['n_bars']}~\mathrm{{bars}}~of~{inp['bar_dia']}
 Neutral axis depth, $x_u$ & ${results['xu_act']:.2f}\,\mathrm{{mm}}$ \\
 Nominal shear stress, $\tau_v$ & ${results['tau_v']:.2f}\,\mathrm{{N/mm^2}}$ \\
 Concrete shear strength, $\tau_c$ & ${results['tau_c']:.2f}\,\mathrm{{N/mm^2}}$ \\
-Shear reinforcement & {latex_safe_ascii(results['shear_result'])} \\
+Shear reinforcement & {latex_safe_symbol_text(results['shear_result'])} \\
 Deflection check & {status} \\
 Actual / permissible $L/d$ & {results['ld_actual']:.2f} / {results['ld_perm']:.2f} \\
 \bottomrule
@@ -878,9 +908,9 @@ x_u &= {results['xu_act']:.2f}\,\mathrm{{mm}} \\
 \section*{{Detailed Calculation Log}}
 
 {{\small
-\begin{{Verbatim}}
+\begin{{alltt}}
 {detailed_report}
-\end{{Verbatim}}
+\end{{alltt}}
 }}
 
 \end{{document}}
