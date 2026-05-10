@@ -6,6 +6,11 @@ Simply Supported Beam, UDL Loading
 
 import math
 import datetime
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
 import streamlit as st
 
 # ─── IS 456:2000 Constants ────────────────────────────────────────────────────
@@ -667,34 +672,196 @@ def design_beam(inp: dict):
 
 
 # ─── Streamlit UI ─────────────────────────────────────────────────────────────
-from fpdf import FPDF
 
-def generate_pdf_report(report_text, b, D, fck, fy):
-    # Initialize FPDF2
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # 1. Register and set the Unicode font
-    # Ensure 'DejaVuSans.ttf' is uploaded to your repo
-    pdf.add_font("DejaVu", "", "DejaVuSans.ttf")
-    pdf.set_font("DejaVu", size=10)
-    
-    # 2. Set title
-    pdf.set_font("DejaVu", 'B', 14)
-    pdf.cell(0, 10, txt="RCC Beam Design Report (IS 456:2000)", ln=True, align='C')
-    pdf.ln(5)
-    
-    # 3. Add the report body
-    pdf.set_font("DejaVu", size=9)
-    
-    # Using multi_cell handles long lines and UTF-8 characters automatically
-    for line in report_text.split('\n'):
-        # fpdf2 automatically handles characters like φ, τ, and ✓ 
-        # if the font supports them
-        pdf.multi_cell(0, 5, txt=line)
-        
-    # Return the bytes for the Streamlit download button
-    return pdf.output()
+LATEX_CHAR_MAP = {
+    "&": r"\&",
+    "%": r"\%",
+    "$": r"\$",
+    "#": r"\#",
+    "_": r"\_",
+    "{": r"\{",
+    "}": r"\}",
+}
+
+UNICODE_ASCII_MAP = {
+    "—": "--",
+    "–": "-",
+    "−": "-",
+    "×": "x",
+    "·": ".",
+    "²": "^2",
+    "³": "^3",
+    "≤": "<=",
+    "≥": ">=",
+    "→": "->",
+    "✓": "PASS",
+    "✗": "FAIL",
+    "φ": "phi",
+    "τ": "tau",
+    "Δ": "Delta",
+    "γ": "gamma",
+    "σ": "sigma",
+    "₁": "1",
+    "₂": "2",
+    "ₘ": "m",
+    "ₛ": "s",
+    "ₜ": "t",
+    "ₙ": "n",
+    "ₐ": "a",
+    "ₗ": "l",
+    "ₓ": "x",
+    "ₚ": "p",
+    "ₚ": "p",
+    "ₖ": "k",
+    "ₑ": "e",
+    "ₒ": "o",
+    "ₗ": "l",
+    "₍": "(",
+    "₎": ")",
+    "⁰": "^0",
+    "¹": "^1",
+    "⁴": "^4",
+    "⁵": "^5",
+    "⁶": "^6",
+    "⁷": "^7",
+    "⁸": "^8",
+    "⁹": "^9",
+}
+
+
+def escape_latex(text: str) -> str:
+    """Escape text for safe inline LaTeX rendering."""
+    escaped = []
+    for char in text:
+        escaped.append(LATEX_CHAR_MAP.get(char, char))
+    return "".join(escaped)
+
+
+def normalize_report_text(report_text: str) -> str:
+    """Convert Unicode-heavy console text to pdflatex-safe ASCII."""
+    normalized = report_text
+    for src, dest in UNICODE_ASCII_MAP.items():
+        normalized = normalized.replace(src, dest)
+    return normalized.encode("ascii", errors="replace").decode("ascii")
+
+
+def latex_safe_ascii(text: str) -> str:
+    """Normalize Unicode symbols and escape LaTeX special characters."""
+    return escape_latex(normalize_report_text(text))
+
+
+def build_latex_report(report_text: str, inp: dict, results: dict) -> str:
+    """Generate a standalone LaTeX report source for the beam design."""
+    status = "PASS" if results["deflection_ok"] else "FAIL"
+    utilization = results["Mu"] / results["Mu_lim"] * 100
+    detailed_report = normalize_report_text(report_text)
+
+    return rf"""\documentclass[11pt]{{article}}
+\usepackage[margin=1in]{{geometry}}
+\usepackage{{amsmath}}
+\usepackage{{array}}
+\usepackage{{booktabs}}
+\usepackage[T1]{{fontenc}}
+\usepackage[utf8]{{inputenc}}
+\usepackage{{lmodern}}
+\usepackage{{longtable}}
+\usepackage{{fancyvrb}}
+
+\setlength{{\parindent}}{{0pt}}
+\setlength{{\parskip}}{{0.6\baselineskip}}
+
+\begin{{document}}
+
+\begin{{center}}
+{{\LARGE \textbf{{Singly Reinforced RCC Beam Design Report}}}}\\[4pt]
+{{\large IS 456:2000 -- Limit State Method}}\\[4pt]
+Simply Supported Beam under UDL\\[8pt]
+Generated on {latex_safe_ascii(str(datetime.date.today()))}
+\end{{center}}
+
+\section*{{Input Summary}}
+
+\begin{{tabular}}{{@{{}}ll@{{}}}}
+\toprule
+Parameter & Value \\
+\midrule
+Effective span, $L$ & {inp['span']:.2f} m \\
+Dead load, $w_{{DL}}$ & {inp['w_DL']:.2f} kN/m \\
+Live load, $w_{{LL}}$ & {inp['w_LL']:.2f} kN/m \\
+Concrete grade & M{inp['fck']} \\
+Steel grade & Fe{inp['fy']} \\
+Beam width, $b$ & {inp['b']} mm \\
+Overall depth, $D$ & {inp['D']} mm \\
+Clear cover & {inp['cover']} mm \\
+Main bar diameter & {inp['bar_dia']} mm \\
+Stirrup diameter & {inp['stir_dia']} mm \\
+\bottomrule
+\end{{tabular}}
+
+\section*{{Design Summary}}
+
+\begin{{tabular}}{{@{{}}ll@{{}}}}
+\toprule
+Item & Value \\
+\midrule
+Effective depth, $d$ & {results['d']:.2f} mm \\
+Factored moment, $M_u$ & {results['Mu'] / 1.0e6:.3f} kN.m \\
+Limiting moment, $M_{{u,lim}}$ & {results['Mu_lim'] / 1.0e6:.3f} kN.m \\
+Utilization ratio & {utilization:.1f}\% \\
+Required steel, $A_{{st}}$ & {results['Ast_req']:.2f} mm$^2$ \\
+Provided steel & {results['Ast_prov']:.2f} mm$^2$ \\
+Tension bars & {results['n_bars']} bars of {results['bar_dia']} mm dia \\
+Neutral axis depth, $x_u$ & {results['xu_act']:.2f} mm \\
+Shear reinforcement & {latex_safe_ascii(results['shear_result'])} \\
+Deflection check & {status} \\
+Actual / permissible $L/d$ & {results['ld_actual']:.2f} / {results['ld_perm']:.2f} \\
+\bottomrule
+\end{{tabular}}
+
+\section*{{Detailed Calculation Log}}
+
+{{\small
+\begin{{Verbatim}}
+{detailed_report}
+\end{{Verbatim}}
+}}
+
+\end{{document}}
+"""
+
+
+def generate_pdf_report(report_text: str, inp: dict, results: dict) -> bytes:
+    """Compile a LaTeX report and return the generated PDF bytes."""
+    if shutil.which("pdflatex") is None:
+        raise RuntimeError("pdflatex is not available in the runtime environment.")
+
+    tex_source = build_latex_report(report_text, inp, results)
+
+    with tempfile.TemporaryDirectory(dir=".") as temp_dir:
+        temp_path = Path(temp_dir)
+        tex_file = temp_path / "beam_report.tex"
+        pdf_file = temp_path / "beam_report.pdf"
+        tex_file.write_text(tex_source, encoding="utf-8")
+
+        command = [
+            "pdflatex",
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            tex_file.name,
+        ]
+        for _ in range(2):
+            completed = subprocess.run(
+                command,
+                cwd=temp_path,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode != 0:
+                log_snippet = completed.stdout[-2000:] + completed.stderr[-2000:]
+                raise RuntimeError(f"LaTeX compilation failed.\n{log_snippet}")
+
+        return pdf_file.read_bytes()
   
 def main():
     st.set_page_config(
@@ -807,17 +974,18 @@ def main():
     st.code(report_text, language="text")
 
     # ── Download ───────────────────────────────────────────────────────────────
-    
-    # Generate the PDF byte data
-    pdf_bytes = generate_pdf_report(report_text, b, D, fck, fy)
-    
-    st.download_button(
-        label="⬇️ Download Full Design Report (.pdf)",
-        data=pdf_bytes,
-        file_name=f"RCC_Beam_Design_{b}x{D}_M{fck}_Fe{fy}.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-    )
+    try:
+        pdf_bytes = generate_pdf_report(report_text, inp, results)
+    except RuntimeError as error:
+        st.error(f"LaTeX PDF generation failed: {error}")
+    else:
+        st.download_button(
+            label="⬇️ Download Full Design Report (.pdf)",
+            data=pdf_bytes,
+            file_name=f"RCC_Beam_Design_{b}x{D}_M{fck}_Fe{fy}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
 
     st.caption(
         "All values are in SI units (N, mm, N/mm², kN·m). "
