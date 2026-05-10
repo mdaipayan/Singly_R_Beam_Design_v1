@@ -6,6 +6,7 @@ Simply Supported Beam, UDL Loading
 
 import math
 import datetime
+import re
 import shutil
 import subprocess
 import tempfile
@@ -689,20 +690,36 @@ UNICODE_ASCII_MAP = {
     "−": "-",
     "×": "x",
     "·": ".",
-    "²": "^2",
-    "³": "^3",
+    "•": "-",
+    "►": "Step:",
+    "π": "pi",
+    "²": "²",
+    "³": "³",
+    "√": "sqrt",
+    "≈": "approx.",
+    "±": "+/-",
     "≤": "<=",
     "≥": ">=",
     "→": "->",
     "✓": "PASS",
     "✗": "FAIL",
+    "✔": "PASS",
+    "✘": "FAIL",
     "φ": "phi",
     "τ": "tau",
     "Δ": "Delta",
     "γ": "gamma",
     "σ": "sigma",
+    "₀": "0",
     "₁": "1",
     "₂": "2",
+    "₃": "3",
+    "₄": "4",
+    "₅": "5",
+    "₆": "6",
+    "₇": "7",
+    "₈": "8",
+    "₉": "9",
     "ₘ": "m",
     "ₛ": "s",
     "ₜ": "t",
@@ -726,6 +743,10 @@ UNICODE_ASCII_MAP = {
     "⁷": "^7",
     "⁸": "^8",
     "⁹": "^9",
+    "═": "=",
+    "─": "-",
+    "│": "|",
+    "║": "||",
 }
 
 
@@ -742,7 +763,12 @@ def normalize_report_text(report_text: str) -> str:
     normalized = report_text
     for src, dest in UNICODE_ASCII_MAP.items():
         normalized = normalized.replace(src, dest)
-    return normalized.encode("ascii", errors="replace").decode("ascii")
+    normalized = re.sub(
+        r"(?<![\d.])-?\d+\.\d{3,}(?!\d)",
+        lambda match: f"{float(match.group(0)):.2f}",
+        normalized,
+    )
+    return normalized
 
 
 def latex_safe_ascii(text: str) -> str:
@@ -791,8 +817,8 @@ Parameter & Value \\
 Effective span, $L$ & ${inp['span']:.2f}\,\mathrm{{m}}$ \\
 Dead load, $w_{{DL}}$ & ${inp['w_DL']:.2f}\,\mathrm{{kN/m}}$ \\
 Live load, $w_{{LL}}$ & ${inp['w_LL']:.2f}\,\mathrm{{kN/m}}$ \\
-Concrete grade, $f_{{ck}}$ & $\mathrm{{M}}{inp['fck']} \; (f_{{ck}} = {inp['fck']}\,\mathrm{{N/mm^2}})$ \\
-Steel grade, $f_y$ & $\mathrm{{Fe}}{inp['fy']} \; (f_y = {inp['fy']}\,\mathrm{{N/mm^2}})$ \\
+Concrete grade, $f_{{ck}}$ & $\mathrm{{M}}{inp['fck']} \; (f_{{ck}} = {inp['fck']:.2f}\,\mathrm{{N/mm^2}})$ \\
+Steel grade, $f_y$ & $\mathrm{{Fe}}{inp['fy']} \; (f_y = {inp['fy']:.2f}\,\mathrm{{N/mm^2}})$ \\
 Beam width, $b$ & ${inp['b']}\,\mathrm{{mm}}$ \\
 Overall depth, $D$ & ${inp['D']}\,\mathrm{{mm}}$ \\
 Clear cover, $c'$ & ${inp['cover']}\,\mathrm{{mm}}$ \\
@@ -820,15 +846,15 @@ p_t &= \frac{{100A_{{st}}}}{{bd}}
 Item & Value \\
 \midrule
 Effective depth, $d$ & ${results['d']:.2f}\,\mathrm{{mm}}$ \\
-Factored moment, $M_u$ & ${results['Mu'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}}$ \\
-Limiting moment, $M_{{u,\mathrm{{lim}}}}$ & ${results['Mu_lim'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}}$ \\
-Utilization ratio & {utilization:.1f}\% \\
+Factored moment, $M_u$ & ${results['Mu'] / 1.0e6:.2f}\,\mathrm{{kN\cdot m}}$ \\
+Limiting moment, $M_{{u,\mathrm{{lim}}}}$ & ${results['Mu_lim'] / 1.0e6:.2f}\,\mathrm{{kN\cdot m}}$ \\
+Utilization ratio & {utilization:.2f}\% \\
 Required steel, $A_{{st,req}}$ & ${results['Ast_req']:.2f}\,\mathrm{{mm^2}}$ \\
 Provided steel, $A_{{st,prov}}$ & ${results['Ast_prov']:.2f}\,\mathrm{{mm^2}}$ \\
 Tension reinforcement & ${results['n_bars']}~\mathrm{{bars}}~of~{inp['bar_dia']}\,\mathrm{{mm}}~\phi$ \\
 Neutral axis depth, $x_u$ & ${results['xu_act']:.2f}\,\mathrm{{mm}}$ \\
-Nominal shear stress, $\tau_v$ & ${results['tau_v']:.3f}\,\mathrm{{N/mm^2}}$ \\
-Concrete shear strength, $\tau_c$ & ${results['tau_c']:.3f}\,\mathrm{{N/mm^2}}$ \\
+Nominal shear stress, $\tau_v$ & ${results['tau_v']:.2f}\,\mathrm{{N/mm^2}}$ \\
+Concrete shear strength, $\tau_c$ & ${results['tau_c']:.2f}\,\mathrm{{N/mm^2}}$ \\
 Shear reinforcement & {latex_safe_ascii(results['shear_result'])} \\
 Deflection check & {status} \\
 Actual / permissible $L/d$ & {results['ld_actual']:.2f} / {results['ld_perm']:.2f} \\
@@ -840,11 +866,11 @@ Actual / permissible $L/d$ & {results['ld_actual']:.2f} / {results['ld_perm']:.2
 \begin{{align*}}
 A_{{st,req}} &= {results['Ast_req']:.2f}\,\mathrm{{mm^2}} \\
 A_{{st,prov}} &= {results['Ast_prov']:.2f}\,\mathrm{{mm^2}} \\
-M_u &= {results['Mu'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}} \\
-M_{{u,\mathrm{{lim}}}} &= {results['Mu_lim'] / 1.0e6:.3f}\,\mathrm{{kN\cdot m}} \\
+M_u &= {results['Mu'] / 1.0e6:.2f}\,\mathrm{{kN\cdot m}} \\
+M_{{u,\mathrm{{lim}}}} &= {results['Mu_lim'] / 1.0e6:.2f}\,\mathrm{{kN\cdot m}} \\
 x_u &= {results['xu_act']:.2f}\,\mathrm{{mm}} \\
-\tau_v &= {results['tau_v']:.3f}\,\mathrm{{N/mm^2}} \\
-\tau_c &= {results['tau_c']:.3f}\,\mathrm{{N/mm^2}}
+\tau_v &= {results['tau_v']:.2f}\,\mathrm{{N/mm^2}} \\
+\tau_c &= {results['tau_c']:.2f}\,\mathrm{{N/mm^2}}
 \end{{align*}}
 
 \section*{{Detailed Calculation Log}}
