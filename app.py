@@ -862,6 +862,11 @@ def generate_pdf_report(report_text: str, inp: dict, results: dict) -> bytes:
                 raise RuntimeError(f"LaTeX compilation failed.\n{log_snippet}")
 
         return pdf_file.read_bytes()
+
+
+def latex_pdf_available() -> bool:
+    """Return True when the LaTeX engine is available in the app runtime."""
+    return shutil.which("pdflatex") is not None
   
 def main():
     st.set_page_config(
@@ -877,6 +882,13 @@ def main():
         "Simply Supported Beam | UDL Loading**"
     )
     st.markdown("---")
+
+    if not latex_pdf_available():
+        st.warning(
+            "PDF export needs `pdflatex` in the runtime. "
+            "For GitHub/Streamlit deployment, add the required TeX packages "
+            "through `packages.txt`."
+        )
 
     # ── Sidebar Inputs ────────────────────────────────────────────────────────
     with st.sidebar:
@@ -978,6 +990,13 @@ def main():
         pdf_bytes = generate_pdf_report(report_text, inp, results)
     except RuntimeError as error:
         st.error(f"LaTeX PDF generation failed: {error}")
+        st.download_button(
+            label="⬇️ Download LaTeX Source (.tex)",
+            data=build_latex_report(report_text, inp, results),
+            file_name=f"RCC_Beam_Design_{b}x{D}_M{fck}_Fe{fy}.tex",
+            mime="application/x-tex",
+            use_container_width=True,
+        )
     else:
         st.download_button(
             label="⬇️ Download Full Design Report (.pdf)",
