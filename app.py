@@ -182,12 +182,12 @@ def design_beam(inp: dict):
 
     Mu = 1.5 * M_service * 1.0e6        # N·mm
     step(
-        "Factored Bending Moment (Mu)  [IS 456:2000, Table 18, γf = 1.5]",
-        "Mu = γf × M = 1.5 × M",
-        f"Mu = 1.5 × {M_service:.4f} × 10⁶  N·mm",
+        "Factored Bending Moment (Mᵤ)  [IS 456:2000, Table 18, γ = 1.5]",
+        "Mᵤ = γ × M = 1.5 × M",
+        f"Mᵤ = 1.5 × {M_service:.4f} × 10⁶  N·mm",
         Mu / 1.0e6, "kN·m",
     )
-    add(f"      → Mu = {Mu:.2f} N·mm")
+    add(f"      → Mᵤ = {Mu:.2f} N·mm")
     add()
 
     # Shear force (for use in Step 10)
@@ -202,58 +202,58 @@ def design_beam(inp: dict):
 
     add("  [IS 456:2000, Annex G, Cl. G-1.1]")
     add(f"  Limiting neutral axis ratio for Fe{fy}:")
-    add(f"    xu,max / d = 700 / (1100 + 0.87 × fy)")
-    add(f"    xu,max / d = 700 / (1100 + 0.87 × {fy})")
-    add(f"    xu,max / d = {xu_max_ratio}")
+    add(f"    xᵤ,max / d = 700 / (1100 + 0.87 × fy)")
+    add(f"    xᵤ,max / d = 700 / (1100 + 0.87 × {fy})")
+    add(f"    xᵤ,max / d = {xu_max_ratio}")
     add()
 
     step(
-        "Limiting Neutral Axis Depth (xu,max)",
-        "xu,max = (xu,max/d) × d",
-        f"xu,max = {xu_max_ratio} × {d:.4f}",
+        "Limiting Neutral Axis Depth (xᵤ,max)",
+        "xᵤ,max = (xᵤ,max/d) × d",
+        f"xᵤ,max = {xu_max_ratio} × {d:.4f}",
         xu_max, "mm",
     )
 
     Mu_lim = 0.36 * fck * b * xu_max * (d - 0.42 * xu_max)  # N·mm
     step(
-        "Limiting Moment of Resistance (Mu,lim)  [IS 456:2000, Annex G, Eq. G-1.1]",
-        "Mu,lim = 0.36 × fck × b × xu,max × (d − 0.42 × xu,max)",
+        "Limiting Moment of Resistance (Mᵤ,lim)  [IS 456:2000, Annex G, Eq. G-1.1]",
+        "Mᵤ,lim = 0.36 × fck × b × xᵤ,max × (d − 0.42 × xᵤ,max)",
         (
-            f"Mu,lim = 0.36 × {fck} × {b} × {xu_max:.2f}"
+            f"Mᵤ,lim = 0.36 × {fck} × {b} × {xu_max:.2f}"
             f" × ({d:.2f} − 0.42 × {xu_max:.2f})"
         ),
         Mu_lim / 1.0e6, "kN·m",
     )
-    add(f"      → Mu,lim = {Mu_lim:.2f} N·mm")
+    add(f"      → Mᵤ,lim = {Mu_lim:.2f} N·mm")
     add()
 
     # ── Step 4: Section Adequacy ──────────────────────────────────────────────
     hdr("STEP 4 — SECTION ADEQUACY CHECK")
-    add(f"  Factored Moment   Mu      = {Mu / 1.0e6:.4f} kN·m")
-    add(f"  Limiting Moment   Mu,lim  = {Mu_lim / 1.0e6:.4f} kN·m")
+    add(f"  Factored Moment   Mᵤ      = {Mu / 1.0e6:.4f} kN·m")
+    add(f"  Limiting Moment   Mᵤ,lim  = {Mu_lim / 1.0e6:.4f} kN·m")
     add()
 
     if Mu > Mu_lim:
-        add("  ✗ Mu > Mu,lim")
+        add("  ✗ Mᵤ > Mᵤ,lim")
         add("    Section is INADEQUATE for singly reinforced beam design.")
         add("    → Increase total depth D, or adopt a doubly reinforced section.")
         add("    Design aborted. Revise inputs and re-run.")
         return None, lines
 
-    add("  ✓ Mu ≤ Mu,lim")
+    add("  ✓ Mᵤ ≤ Mᵤ,lim")
     add("    Section is ADEQUATE — proceed with singly reinforced design.")
     add()
 
     # ── Step 5: Area of Tension Steel (Ast) ───────────────────────────────────
-    hdr("STEP 5 — AREA OF TENSION STEEL (Ast)")
+    hdr("STEP 5 — AREA OF TENSION STEEL (Aₛₜ)")
 
     add("  From IS 456:2000, Annex G, Cl. G-1.1a:")
-    add("    Mu = 0.87 × fy × Ast × [d − (Ast × fy) / (fck × b)]")
+    add("    Mᵤ = 0.87 × fy × Aₛₜ × [d − (Aₛₜ × fy) / (fck × b)]")
     add()
-    add("  Expanding and rearranging into standard quadratic form A·Ast² + B·Ast + C = 0:")
+    add("  Expanding and rearranging into standard quadratic form A·Aₛₜ² + B·Aₛₜ + C = 0:")
     add()
     add("    0.87×fy²         ")
-    add("    ─────────  × Ast²  −  0.87×fy×d × Ast  +  Mu  =  0")
+    add("    ─────────  × Aₛₜ²  −  0.87×fy×d × Aₛₜ  +  Mᵤ  =  0")
     add("     fck × b         ")
     add()
 
@@ -270,7 +270,7 @@ def design_beam(inp: dict):
     add(f"      = −0.87 × {fy} × {d:.4f}")
     add(f"      = {B_q:.4f}")
     add()
-    add(f"    C = Mu = {C_q:.4f} N·mm")
+    add(f"    C = Mᵤ = {C_q:.4f} N·mm")
     add()
 
     discriminant = B_q ** 2 - 4.0 * A_q * C_q
@@ -288,15 +288,15 @@ def design_beam(inp: dict):
     Ast2 = (-B_q + math.sqrt(discriminant)) / (2.0 * A_q)
 
     add(f"  Roots of quadratic:")
-    add(f"    Ast  =  (−B ± √Δ) / (2A)")
+    add(f"    Aₛₜ  =  (−B ± √Δ) / (2A)")
     add()
-    add(f"    Ast₁ = (−({B_q:.4f}) − √{discriminant:.4f}) / (2 × {A_q:.6f})")
+    add(f"    Aₛₜ₁ = (−({B_q:.4f}) − √{discriminant:.4f}) / (2 × {A_q:.6f})")
     add(f"         = {Ast1:.4f} mm²    ← valid (smaller, under-reinforced)")
     add()
-    add(f"    Ast₂ = (−({B_q:.4f}) + √{discriminant:.4f}) / (2 × {A_q:.6f})")
+    add(f"    Aₛₜ₂ = (−({B_q:.4f}) + √{discriminant:.4f}) / (2 × {A_q:.6f})")
     add(f"         = {Ast2:.4f} mm²    ← exceeds balanced condition, reject")
     add()
-    add(f"  → Required Ast  =  {Ast1:.4f} mm²")
+    add(f"  → Required Aₛₜ  =  {Ast1:.4f} mm²")
     add()
 
     Ast_req = Ast1
@@ -308,32 +308,32 @@ def design_beam(inp: dict):
     Ast_max = 0.04 * b * D
 
     step(
-        "Minimum Tension Reinforcement (Ast,min)  [IS 456:2000, Cl. 26.5.1.1 (a)]",
-        "Ast,min / (b × d) = 0.85 / fy",
-        f"Ast,min = 0.85 × {b} × {d:.4f} / {fy}",
+        "Minimum Tension Reinforcement (Aₛₜ,min)  [IS 456:2000, Cl. 26.5.1.1 (a)]",
+        "Aₛₜ,min / (b × d) = 0.85 / fy",
+        f"Aₛₜ,min = 0.85 × {b} × {d:.4f} / {fy}",
         Ast_min, "mm²",
     )
 
     step(
-        "Maximum Tension Reinforcement (Ast,max)  [IS 456:2000, Cl. 26.5.1.1 (b)]",
-        "Ast,max = 0.04 × b × D",
-        f"Ast,max = 0.04 × {b} × {D}",
+        "Maximum Tension Reinforcement (Aₛₜ,max)  [IS 456:2000, Cl. 26.5.1.1 (b)]",
+        "Aₛₜ,max = 0.04 × b × D",
+        f"Aₛₜ,max = 0.04 × {b} × {D}",
         Ast_max, "mm²",
     )
 
     if Ast_req < Ast_min:
-        add(f"  Ast,req ({Ast_req:.4f} mm²) < Ast,min ({Ast_min:.4f} mm²)")
-        add(f"  → Adopt Ast = Ast,min = {Ast_min:.4f} mm²")
+        add(f"  Aₛₜ,req ({Ast_req:.4f} mm²) < Aₛₜ,min ({Ast_min:.4f} mm²)")
+        add(f"  → Adopt Aₛₜ = Aₛₜ,min = {Ast_min:.4f} mm²")
         Ast_design = Ast_min
     elif Ast_req > Ast_max:
-        add(f"  ✗ Ast,req ({Ast_req:.4f} mm²) > Ast,max ({Ast_max:.4f} mm²)")
+        add(f"  ✗ Aₛₜ,req ({Ast_req:.4f} mm²) > Aₛₜ,max ({Ast_max:.4f} mm²)")
         add("    → Section is over-stressed. Revise beam dimensions.")
         return None, lines
     else:
-        add(f"  ✓ Ast,min ≤ Ast,req ≤ Ast,max")
-        add(f"    Ast,min = {Ast_min:.4f} mm²")
-        add(f"    Ast,req = {Ast_req:.4f} mm²  ← govern")
-        add(f"    Ast,max = {Ast_max:.4f} mm²")
+        add(f"  ✓ Aₛₜ,min ≤ Aₛₜ,req ≤ Aₛₜ,max")
+        add(f"    Aₛₜ,min = {Ast_min:.4f} mm²")
+        add(f"    Aₛₜ,req = {Ast_req:.4f} mm²  ← govern")
+        add(f"    Aₛₜ,max = {Ast_max:.4f} mm²")
         Ast_design = Ast_req
     add()
 
@@ -351,20 +351,20 @@ def design_beam(inp: dict):
         a_bar, "mm²",
     )
 
-    add(f"  Number of bars required = Ast,design / a_bar")
+    add(f"  Number of bars required = Aₛₜ,design / a_bar")
     add(f"    = {Ast_design:.4f} / {a_bar:.4f}")
     add(f"    = {Ast_design / a_bar:.4f}  →  Round up to  {n_bars} bars")
     add()
 
     step(
-        "Ast Provided",
-        "Ast,prov = n × (π × φ² / 4)",
-        f"Ast,prov = {n_bars} × π × {bar_dia}² / 4",
+        "Aₛₜ Provided",
+        "Aₛₜ,prov = n × (π × φ² / 4)",
+        f"Aₛₜ,prov = {n_bars} × π × {bar_dia}² / 4",
         Ast_prov, "mm²",
     )
 
     add(f"  → Provide {n_bars} — {bar_dia} mm dia bars")
-    add(f"     Ast provided = {Ast_prov:.4f} mm²  ≥  Ast required = {Ast_design:.4f} mm²  ✓")
+    add(f"     Aₛₜ provided = {Ast_prov:.4f} mm²  ≥  Aₛₜ required = {Ast_design:.4f} mm²  ✓")
     add()
 
     # ── Step 8: Actual Neutral Axis Depth ─────────────────────────────────────
@@ -372,24 +372,24 @@ def design_beam(inp: dict):
 
     add("  Equilibrium of compression and tension forces:")
     add("    C = T")
-    add("    0.36 × fck × b × xu  =  0.87 × fy × Ast,prov")
+    add("    0.36 × fck × b × xᵤ  =  0.87 × fy × Aₛₜ,prov")
     add()
     xu_act = (0.87 * fy * Ast_prov) / (0.36 * fck * b)
     step(
-        "Actual Neutral Axis Depth (xu)",
-        "xu = (0.87 × fy × Ast,prov) / (0.36 × fck × b)",
-        f"xu = (0.87 × {fy} × {Ast_prov:.4f}) / (0.36 × {fck} × {b})",
+        "Actual Neutral Axis Depth (xᵤ)",
+        "xᵤ = (0.87 × fy × Aₛₜ,prov) / (0.36 × fck × b)",
+        f"xᵤ = (0.87 × {fy} × {Ast_prov:.4f}) / (0.36 × {fck} × {b})",
         xu_act, "mm",
     )
 
-    add(f"  xu         = {xu_act:.4f} mm")
-    add(f"  xu,max     = {xu_max:.4f} mm")
+    add(f"  xᵤ         = {xu_act:.4f} mm")
+    add(f"  xᵤ,max     = {xu_max:.4f} mm")
     add()
     if xu_act <= xu_max:
-        add(f"  ✓ xu ({xu_act:.4f}) ≤ xu,max ({xu_max:.4f})")
+        add(f"  ✓ xᵤ ({xu_act:.4f}) ≤ xᵤ,max ({xu_max:.4f})")
         add("    → Under-reinforced section (ductile failure mode)  ✓")
     else:
-        add(f"  ✗ xu ({xu_act:.4f}) > xu,max ({xu_max:.4f})")
+        add(f"  ✗ xᵤ ({xu_act:.4f}) > xᵤ,max ({xu_max:.4f})")
         add("    → Over-reinforced section. Revise steel or depth.")
     add()
 
@@ -398,23 +398,23 @@ def design_beam(inp: dict):
 
     Mu_act = 0.87 * fy * Ast_prov * (d - (fy * Ast_prov) / (fck * b))
     step(
-        "Actual Moment of Resistance (Mu,act)  [IS 456:2000, Annex G, Eq. G-1.1a]",
-        "Mu,act = 0.87 × fy × Ast,prov × [d − (fy × Ast,prov) / (fck × b)]",
+        "Actual Moment of Resistance (Mᵤ,act)  [IS 456:2000, Annex G, Eq. G-1.1a]",
+        "Mᵤ,act = 0.87 × fy × Aₛₜ,prov × [d − (fy × Aₛₜ,prov) / (fck × b)]",
         (
-            f"Mu,act = 0.87 × {fy} × {Ast_prov:.4f}"
+            f"Mᵤ,act = 0.87 × {fy} × {Ast_prov:.4f}"
             f" × [{d:.2f} − ({fy} × {Ast_prov:.4f}) / ({fck} × {b})]"
         ),
         Mu_act / 1.0e6, "kN·m",
     )
-    add(f"      → Mu,act = {Mu_act:.2f} N·mm")
+    add(f"      → Mᵤ,act = {Mu_act:.2f} N·mm")
     add()
-    add(f"  Factored moment Mu      = {Mu / 1.0e6:.4f} kN·m")
-    add(f"  Actual MR      Mu,act   = {Mu_act / 1.0e6:.4f} kN·m")
+    add(f"  Factored moment Mᵤ      = {Mu / 1.0e6:.4f} kN·m")
+    add(f"  Actual MR      Mᵤ,act   = {Mu_act / 1.0e6:.4f} kN·m")
     add()
     if Mu_act >= Mu:
-        add("  ✓ Mu,act ≥ Mu  →  Section is SAFE in flexure")
+        add("  ✓ Mᵤ,act ≥ Mᵤ  →  Section is SAFE in flexure")
     else:
-        add("  ✗ Mu,act < Mu  →  Section is UNSAFE. Increase Ast.")
+        add("  ✗ Mᵤ,act < Mᵤ  →  Section is UNSAFE. Increase Aₛₜ.")
     add()
 
     # ── Step 10: Shear Design ─────────────────────────────────────────────────
@@ -428,25 +428,25 @@ def design_beam(inp: dict):
     )
 
     step(
-        "Factored Shear Force (Vu)  [IS 456:2000, Table 18, γf = 1.5]",
-        "Vu = 1.5 × V",
-        f"Vu = 1.5 × {V_service:.4f} × 1000",
+        "Factored Shear Force (Vᵤ)  [IS 456:2000, Table 18, γ = 1.5]",
+        "Vᵤ = 1.5 × V",
+        f"Vᵤ = 1.5 × {V_service:.4f} × 1000",
         Vu / 1.0e3, "kN",
     )
-    add(f"      → Vu = {Vu:.2f} N")
+    add(f"      → Vᵤ = {Vu:.2f} N")
     add()
 
     tau_v = Vu / (b * d)
     step(
-        "Nominal Shear Stress (τv)  [IS 456:2000, Cl. 40.1]",
-        "τv = Vu / (b × d)",
-        f"τv = {Vu:.2f} / ({b} × {d:.4f})",
+        "Nominal Shear Stress (τᵥ)  [IS 456:2000, Cl. 40.1]",
+        "τᵥ = Vᵤ / (b × d)",
+        f"τᵥ = {Vu:.2f} / ({b} × {d:.4f})",
         tau_v, "N/mm²",
     )
 
     pt = 100.0 * Ast_prov / (b * d)
     add(f"  Percentage of tension steel (pt):")
-    add(f"    pt = 100 × Ast,prov / (b × d)")
+    add(f"    pₜ = 100 × Aₛₜ,prov / (b × d)")
     add(f"       = 100 × {Ast_prov:.4f} / ({b} × {d:.4f})")
     add(f"       = {pt:.4f} %")
     add()
@@ -467,18 +467,18 @@ def design_beam(inp: dict):
     Asv = 2.0 * math.pi * stir_dia ** 2 / 4.0
 
     if tau_v > tau_c_max:
-        add(f"  ✗ τv ({tau_v:.4f}) > τc,max ({tau_c_max:.4f}) N/mm²")
+        add(f"  ✗ τᵥ ({tau_v:.4f}) > τc,max ({tau_c_max:.4f}) N/mm²")
         add("    Beam cross-section must be revised (increase b or d).")
         shear_result = "SECTION INADEQUATE — revise"
     elif tau_v <= tau_c:
-        add(f"  ✓ τv ({tau_v:.4f}) ≤ τc ({tau_c:.4f}) N/mm²")
+        add(f"  ✓ τᵥ ({tau_v:.4f}) ≤ τc ({tau_c:.4f}) N/mm²")
         add("    Minimum/nominal stirrups required  [IS 456:2000, Cl. 40.3]")
         add()
 
         step(
-            "Area of stirrup legs Asv (2-legged)",
-            "Asv = 2 × (π × φv² / 4)",
-            f"Asv = 2 × π × {stir_dia}² / 4",
+            "Area of stirrup legs Aₛᵥ (2-legged)",
+            "Aₛᵥ = 2 × (π × φᵥ² / 4)",
+            f"Aₛᵥ = 2 × π × {stir_dia}² / 4",
             Asv, "mm²",
         )
 
@@ -488,33 +488,33 @@ def design_beam(inp: dict):
 
         step(
             "Minimum Stirrup Spacing  [IS 456:2000, Cl. 26.5.1.6]",
-            "sv = 0.87 × fy × Asv / (0.4 × b)",
-            f"sv = 0.87 × {fy} × {Asv:.4f} / (0.4 × {b})",
+            "sᵥ = 0.87 × fy × Aₛᵥ / (0.4 × b)",
+            f"sᵥ = 0.87 × {fy} × {Asv:.4f} / (0.4 × {b})",
             sv_min, "mm",
         )
         add(f"  Maximum spacing = min(0.75d, 300 mm)")
         add(f"    = min(0.75 × {d:.2f}, 300) = min({0.75*d:.2f}, 300) = {sv_max:.0f} mm")
         sv_adopt = math.floor(min(sv_min, sv_max) / 5) * 5  # round down to 5 mm
-        add(f"  Adopted sv = {sv_adopt:.0f} mm (rounded to nearest 5 mm)")
+        add(f"  Adopted sᵥ = {sv_adopt:.0f} mm (rounded to nearest 5 mm)")
         add()
         add(f"  → Provide 2-legged {stir_dia} mm dia stirrups @ {sv_adopt:.0f} mm c/c")
         shear_result = f"Nominal: 2L-{stir_dia}φ @ {sv_adopt:.0f} mm c/c"
     else:
-        add(f"  τc ({tau_c:.4f}) < τv ({tau_v:.4f}) ≤ τc,max ({tau_c_max:.4f}) N/mm²")
+        add(f"  τc ({tau_c:.4f}) < τᵥ ({tau_v:.4f}) ≤ τc,max ({tau_c_max:.4f}) N/mm²")
         add("  → Shear reinforcement is required  [IS 456:2000, Cl. 40.4]")
         add()
 
         Vus = Vu - tau_c * b * d   # N
         add(f"  Shear resisted by stirrups:")
-        add(f"    Vus = Vu − τc × b × d")
+        add(f"    Vᵤₛ = Vᵤ − τc × b × d")
         add(f"        = {Vu:.2f} − {tau_c:.4f} × {b} × {d:.4f}")
         add(f"        = {Vus:.4f} N")
         add()
 
         step(
-            "Area of stirrup legs Asv (2-legged)",
-            "Asv = 2 × (π × φv² / 4)",
-            f"Asv = 2 × π × {stir_dia}² / 4",
+            "Area of stirrup legs Aₛᵥ (2-legged)",
+            "Aₛᵥ = 2 × (π × φᵥ² / 4)",
+            f"Aₛᵥ = 2 × π × {stir_dia}² / 4",
             Asv, "mm²",
         )
 
@@ -524,13 +524,13 @@ def design_beam(inp: dict):
         sv_adopt = math.floor(min(sv_calc, sv_max) / 5) * 5
 
         step(
-            "Stirrup Spacing (sv)  [IS 456:2000, Cl. 40.4(a)]",
-            "Vus = 0.87 × fy × Asv × d / sv  →  sv = (0.87 × fy × Asv × d) / Vus",
-            f"sv = (0.87 × {fy} × {Asv:.4f} × {d:.4f}) / {Vus:.4f}",
+            "Stirrup Spacing (sᵥ)  [IS 456:2000, Cl. 40.4(a)]",
+            "Vᵤₛ = 0.87 × fy × Aₛᵥ × d / sᵥ  →  sᵥ = (0.87 × fy × Aₛᵥ × d) / Vᵤₛ",
+            f"sᵥ = (0.87 × {fy} × {Asv:.4f} × {d:.4f}) / {Vus:.4f}",
             sv_calc, "mm",
         )
         add(f"  Maximum spacing = min(0.75d, 300) = min({0.75*d:.2f}, 300) = {sv_max:.0f} mm")
-        add(f"  Adopted sv = {sv_adopt:.0f} mm (rounded to nearest 5 mm)")
+        add(f"  Adopted sᵥ = {sv_adopt:.0f} mm (rounded to nearest 5 mm)")
         add()
         add(f"  → Provide 2-legged {stir_dia} mm dia stirrups @ {sv_adopt:.0f} mm c/c")
         shear_result = f"Design: 2L-{stir_dia}φ @ {sv_adopt:.0f} mm c/c"
@@ -547,7 +547,7 @@ def design_beam(inp: dict):
     # Service stress in tension steel
     fs = 0.58 * fy * (Ast_design / Ast_prov)
     add("  Stress in tension steel at service load  [IS 456:2000, Cl. 23.2.1, Fig. 4]:")
-    add(f"    fs = 0.58 × fy × (Ast,required / Ast,provided)")
+    add(f"    fs = 0.58 × fy × (Aₛₜ,required / Aₛₜ,provided)")
     add(f"       = 0.58 × {fy} × ({Ast_design:.4f} / {Ast_prov:.4f})")
     add(f"       = {fs:.4f} N/mm²")
     add()
@@ -630,14 +630,14 @@ def design_beam(inp: dict):
     add(f"  Grade of Concrete       : M{fck}  (fck = {fck} N/mm²)")
     add(f"  Grade of Steel          : Fe{fy} (fy  = {fy} N/mm²)")
     add(f"  ─────────────────────────────────────────────────────────────────")
-    add(f"  Factored Moment  Mu     : {Mu/1.0e6:.4f} kN·m")
-    add(f"  Limiting Moment  Mu,lim : {Mu_lim/1.0e6:.4f} kN·m")
+    add(f"  Factored Moment  Mᵤ     : {Mu/1.0e6:.4f} kN·m")
+    add(f"  Limiting Moment  Mᵤ,lim : {Mu_lim/1.0e6:.4f} kN·m")
     add(f"  Utilisation Ratio       : {Mu/Mu_lim*100:.1f}%")
     add(f"  ─────────────────────────────────────────────────────────────────")
-    add(f"  Ast Required            : {Ast_design:.2f} mm²")
-    add(f"  Ast Provided            : {Ast_prov:.2f} mm²")
+    add(f"  Aₛₜ Required            : {Ast_design:.2f} mm²")
+    add(f"  Aₛₜ Provided            : {Ast_prov:.2f} mm²")
     add(f"  Tension Steel           : {n_bars} — {bar_dia} mm dia bars (bottom)")
-    add(f"  Actual NA Depth  xu     : {xu_act:.2f} mm  (xu,max = {xu_max:.2f} mm)")
+    add(f"  Actual NA Depth  xᵤ     : {xu_act:.2f} mm  (xᵤ,max = {xu_max:.2f} mm)")
     add(f"  ─────────────────────────────────────────────────────────────────")
     add(f"  Shear Reinforcement     : {shear_result}")
     add(f"  ─────────────────────────────────────────────────────────────────")
@@ -726,6 +726,8 @@ UNICODE_ASCII_MAP = {
     "ₙ": "n",
     "ₐ": "a",
     "ₗ": "l",
+    "ᵤ": "u",
+    "ᵥ": "v",
     "ₓ": "x",
     "ₚ": "p",
     "ₚ": "p",
@@ -979,14 +981,14 @@ def main():
                 |------|-------------|-------------------|
                 | 1 | Effective depth | Cl. 22.2 |
                 | 2 | Factored bending moment (UDL, S.S.) | Table 18 |
-                | 3 | Limiting moment of resistance (xu,max/d) | Annex G, Cl. G-1.1 |
+                | 3 | Limiting moment of resistance (xᵤ,max/d) | Annex G, Cl. G-1.1 |
                 | 4 | Section adequacy (singly vs. doubly reinforced) | Annex G |
                 | 5 | Area of tension steel — quadratic solution | Annex G, Eq. G-1.1a |
                 | 6 | Min/max steel ratio checks | Cl. 26.5.1.1 |
                 | 7 | Bar selection (number and diameter) | — |
                 | 8 | Actual neutral axis depth | Annex G |
                 | 9 | Actual moment of resistance | Annex G, Eq. G-1.1a |
-                | 10 | Shear design (τv, τc, τc,max, stirrup spacing) | Cl. 40 |
+                | 10 | Shear design (τᵥ, τc, τc,max, stirrup spacing) | Cl. 40 |
                 | 11 | Deflection check (L/d method, MF) | Cl. 23.2 |
                 | 12 | Detailing — min width, side face reinf., dev. length | Cl. 26 |
                 """
@@ -1023,14 +1025,14 @@ def main():
     st.subheader("🔢 Key Design Values")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Effective Depth (d)", f"{results['d']:.0f} mm")
-    c2.metric("Ast Required", f"{results['Ast_req']:.0f} mm²")
-    c3.metric("Ast Provided", f"{results['Ast_prov']:.0f} mm²")
+    c2.metric("Aₛₜ Required", f"{results['Ast_req']:.0f} mm²")
+    c3.metric("Aₛₜ Provided", f"{results['Ast_prov']:.0f} mm²")
     c4.metric("Tension Steel", f"{results['n_bars']} — {results['bar_dia']}φ")
 
     c5, c6, c7, c8 = st.columns(4)
     util = results["Mu"] / results["Mu_lim"] * 100
-    c5.metric("Mu / Mu,lim", f"{util:.1f}%", delta="Under-reinforced ✓" if util <= 100 else None)
-    c6.metric("τv / τc  (N/mm²)", f"{results['tau_v']:.3f} / {results['tau_c']:.3f}")
+    c5.metric("Mᵤ / Mᵤ,lim", f"{util:.1f}%", delta="Under-reinforced ✓" if util <= 100 else None)
+    c6.metric("τᵥ / τc  (N/mm²)", f"{results['tau_v']:.3f} / {results['tau_c']:.3f}")
     c7.metric("L/d  Actual / Perm.", f"{results['ld_actual']:.2f} / {results['ld_perm']:.2f}")
     c8.metric("Deflection", "PASS ✓" if results["deflection_ok"] else "FAIL ✗")
 
