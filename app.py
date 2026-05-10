@@ -755,6 +755,8 @@ def build_latex_report(report_text: str, inp: dict, results: dict) -> str:
     status = "PASS" if results["deflection_ok"] else "FAIL"
     utilization = results["Mu"] / results["Mu_lim"] * 100
     detailed_report = normalize_report_text(report_text)
+    status_color = "green!50!black" if results["deflection_ok"] else "red!70!black"
+    shear_result = latex_safe_ascii(results["shear_result"])
 
     return rf"""\documentclass[11pt]{{article}}
 \usepackage[margin=1in]{{geometry}}
