@@ -1103,23 +1103,24 @@ def main():
     conn = st.connection("gsheets", type=GSheetsConnection)
 
     st.divider()
-    st.subheader("📝 Student Research Feedback")
-    st.write("Help me improve this tool for my research paper by providing quick feedback.")
+st.subheader("📝 Student Research Feedback")
+st.write("Help me improve this tool for my research paper by providing quick feedback.")
+
+with st.form("research_feedback"):
+    col1, col2 = st.columns(2)
+    with col1:
+        rating = st.select_slider("Rate the app's utility:", options=[1, 2, 3, 4, 5], value=5)
+    with col2:
+        match = st.radio("Did it match your manual calc?", ["Yes", "Minor Diff", "No"])
     
-    # 2. Create the Feedback Form
-    with st.form("research_feedback"):
-        col1, col2 = st.columns(2)
-        with col1:
-            rating = st.select_slider("Rate the app's utility:", options=[1, 2, 3, 4, 5], value=5)
-        with col2:
-            match = st.radio("Did it match your manual calc?", ["Yes", "Minor Diff", "No"])
-        
-        comment = st.text_area("Any suggestions or bugs found?")
-        
-        submit = st.form_submit_button("Submit to Database")
-    
-        if submit:
-            # 3. Prepare the data
+    comment = st.text_area("Any suggestions or bugs found?")
+    submit = st.form_submit_button("Submit to Database")
+
+    if submit:
+        try:
+            # Connect only when submitting
+            conn = st.connection("gsheets", type=GSheetsConnection)
+            
             new_data = pd.DataFrame([{
                 "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "Rating": rating,
@@ -1127,12 +1128,13 @@ def main():
                 "Comments": comment
             }])
             
-            # 4. Append to Google Sheet
             existing_data = conn.read(worksheet="Sheet1")
             updated_df = pd.concat([existing_data, new_data], ignore_index=True)
             conn.update(worksheet="Sheet1", data=updated_df)
             
-            st.success("Feedback recorded! Thank you, Professor.")
+            st.success("Feedback recorded! Thank you for contributing to the research.")
+        except Exception as e:
+            st.error("Could not reach the database at this time. Please try again later.")
             
 if __name__ == "__main__":
     main()
