@@ -1000,13 +1000,15 @@ def main():
             bar_dia  = st.selectbox("Main Bar Diameter (φ)  [mm]",  [8, 10, 12, 16, 20, 25, 28, 32], index=4)
             stir_dia = st.selectbox("Stirrup Diameter (φv)  [mm]",  [6, 8, 10, 12], index=1)
 
-        run = st.button("🔨  DESIGN BEAM", type="primary", use_container_width=True)
+        # FIXED: Changed variable to run_btn to match the session state logic
+        run_btn = st.button("🔨  DESIGN BEAM", type="primary", use_container_width=True)
 
         if run_btn:
             st.session_state["design_completed"] = True
 
     # ── Main Panel ────────────────────────────────────────────────────────────
-    if not run:
+    # FIXED: Check session state instead of the button variable
+    if not st.session_state.get("design_completed", False):
         st.info("👈 Set the design parameters in the sidebar and press **DESIGN BEAM**.")
         with st.expander("📖 Scope of Design (Steps Covered)"):
             st.markdown(
@@ -1102,13 +1104,12 @@ def main():
         "Designed as per IS 456:2000 — Plain and Reinforced Concrete — Code of Practice."
     )
 
-    # 1. Establish Connection
-    conn = st.connection("gsheets", type=GSheetsConnection)
-
+    # ── Feedback Form ──────────────────────────────────────────────────────────
     st.divider()
     st.subheader("📝 Student Research Feedback")
     st.write("Help me improve this tool for my research paper by providing quick feedback.")
 
+    # FIXED: Indentation is now properly contained within the form block
     with st.form("research_feedback"):
         col1, col2 = st.columns(2)
         with col1:
@@ -1121,7 +1122,7 @@ def main():
     
         if submit:
             try:
-                # Connect only when submitting
+                # Connection is established only when submit is clicked
                 conn = st.connection("gsheets", type=GSheetsConnection)
                 
                 new_data = pd.DataFrame([{
@@ -1135,14 +1136,15 @@ def main():
                 updated_df = pd.concat([existing_data, new_data], ignore_index=True)
                 conn.update(worksheet="Sheet1", data=updated_df)
 
-                # Remember that feedback was submitted!
+                # Remember that feedback was submitted
                 st.session_state["feedback_submitted"] = True
                 
             except Exception as e:
                 st.error("Could not reach the database at this time. Please try again later.")
+                
         # Display the success message if it exists in session state
         if st.session_state.get("feedback_submitted", False):
             st.success("Feedback recorded! Thank you for contributing to the research.")    
-                
+
 if __name__ == "__main__":
     main()
