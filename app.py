@@ -1002,6 +1002,9 @@ def main():
 
         run = st.button("🔨  DESIGN BEAM", type="primary", use_container_width=True)
 
+        if run_btn:
+            st.session_state["design_completed"] = True
+
     # ── Main Panel ────────────────────────────────────────────────────────────
     if not run:
         st.info("👈 Set the design parameters in the sidebar and press **DESIGN BEAM**.")
@@ -1131,10 +1134,15 @@ def main():
                 existing_data = conn.read(worksheet="Sheet1")
                 updated_df = pd.concat([existing_data, new_data], ignore_index=True)
                 conn.update(worksheet="Sheet1", data=updated_df)
+
+                # Remember that feedback was submitted!
+                st.session_state["feedback_submitted"] = True
                 
-                st.success("Feedback recorded! Thank you for contributing to the research.")
             except Exception as e:
                 st.error("Could not reach the database at this time. Please try again later.")
+        # Display the success message if it exists in session state
+        if st.session_state.get("feedback_submitted", False):
+            st.success("Feedback recorded! Thank you for contributing to the research.")    
                 
 if __name__ == "__main__":
     main()
