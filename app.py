@@ -11,7 +11,8 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 import streamlit as st
 
 # ─── IS 456:2000 Constants ────────────────────────────────────────────────────
@@ -1098,6 +1099,40 @@ def main():
         "Designed as per IS 456:2000 — Plain and Reinforced Concrete — Code of Practice."
     )
 
+    # 1. Establish Connection
+    conn = st.connection("gsheets", type=GSheetsConnection)
 
+    st.divider()
+    st.subheader("📝 Student Research Feedback")
+    st.write("Help me improve this tool for my research paper by providing quick feedback.")
+    
+    # 2. Create the Feedback Form
+    with st.form("research_feedback"):
+        col1, col2 = st.columns(2)
+        with col1:
+            rating = st.select_slider("Rate the app's utility:", options=[1, 2, 3, 4, 5], value=5)
+        with col2:
+            match = st.radio("Did it match your manual calc?", ["Yes", "Minor Diff", "No"])
+        
+        comment = st.text_area("Any suggestions or bugs found?")
+        
+        submit = st.form_submit_button("Submit to Database")
+    
+        if submit:
+            # 3. Prepare the data
+            new_data = pd.DataFrame([{
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Rating": rating,
+                "Manual_Match": match,
+                "Comments": comment
+            }])
+            
+            # 4. Append to Google Sheet
+            existing_data = conn.read(worksheet="Sheet1")
+            updated_df = pd.concat([existing_data, new_data], ignore_index=True)
+            conn.update(worksheet="Sheet1", data=updated_df)
+            
+            st.success("Feedback recorded! Thank you, Professor.")
+            
 if __name__ == "__main__":
     main()
