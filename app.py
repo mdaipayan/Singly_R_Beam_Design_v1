@@ -91,41 +91,40 @@ def get_tau_c_max(fck: int) -> float:
 # ─── Core Design Engine ───────────────────────────────────────────────────────
 #______________Figure Function______________________________________________
 def plot_cross_section(b, D, cover, n_bars, bar_dia, stir_dia):
-    ""Generates a scaled cross-section diagram of the designed beam."""
+    """Generates a scaled cross-section diagram of the designed beam."""
     fig, ax = plt.subplots(figsize=(5, 6))
     
     # 1. Concrete Cross-Section
-   concrete = patches.Rectangle((0, 0), b, D, linewidth=2, edgecolor='black', facecolor='#f4f4f4')
-   ax.add_patch(concrete)
+    concrete = patches.Rectangle((0, 0), b, D, linewidth=2, edgecolor='black', facecolor='#f4f4f4')
+    ax.add_patch(concrete)
     
-   # 2. Stirrup (Dashed Red Line)
-   stirrup_w = b - 2 * cover
-   stirrup_h = D - 2 * cover
-   stirrup = patches.Rectangle((cover, cover), stirrup_w, stirrup_h, 
-   linewidth=1.5, edgecolor='red', facecolor='none', linestyle='--')
-   ax.add_patch(stirrup)
+    # 2. Stirrup (Dashed Red Line)
+    stirrup_w = b - 2 * cover
+    stirrup_h = D - 2 * cover
+    stirrup = patches.Rectangle((cover, cover), stirrup_w, stirrup_h, 
+                                linewidth=1.5, edgecolor='red', facecolor='none', linestyle='--')
+    ax.add_patch(stirrup)
     
-   # 3. Main Tension Bars (Bottom Blue Circles)
-   eff_width = stirrup_w - 2 * stir_dia - bar_dia
-   spacing = eff_width / (n_bars - 1) if n_bars > 1 else 0
+    # 3. Main Tension Bars (Bottom Blue Circles)
+    eff_width = stirrup_w - 2 * stir_dia - bar_dia
+    spacing = eff_width / (n_bars - 1) if n_bars > 1 else 0
     
-   start_x = cover + stir_dia + bar_dia / 2
-   start_y = cover + stir_dia + bar_dia / 2
+    start_x = cover + stir_dia + bar_dia / 2
+    start_y = cover + stir_dia + bar_dia / 2
     
-   for i in range(n_bars):
-     bar_x = start_x + i * spacing
-     bar = patches.Circle((bar_x, start_y), bar_dia / 2, color='#1f77b4', zorder=3)
-     ax.add_patch(bar)
+    for i in range(n_bars):
+        bar_x = start_x + i * spacing
+        bar = patches.Circle((bar_x, start_y), bar_dia / 2, color='#1f77b4', zorder=3)
+        ax.add_patch(bar)
     
-   # Formatting the plot to look like an engineering drawing
-   ax.set_xlim(-50, b + 50)
-   ax.set_ylim(-50, D + 50)
-   ax.set_aspect('equal')
-   ax.axis('off')
-   plt.title(f"Cross-Section: {b} x {D} mm\nBottom Steel: {n_bars} — {bar_dia}φ", fontsize=11, pad=10)
+    # Formatting the plot to look like an engineering drawing
+    ax.set_xlim(-50, b + 50)
+    ax.set_ylim(-50, D + 50)
+    ax.set_aspect('equal')
+    ax.axis('off')
+    plt.title(f"Cross-Section: {b} x {D} mm\nBottom Steel: {n_bars} — {bar_dia}φ", fontsize=11, pad=10)
     
-   return fig    
-    
+    return fig    
 def design_beam(inp: dict):
     """
     Complete design of a singly reinforced RCC beam as per IS 456:2000.
