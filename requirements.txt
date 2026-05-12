@@ -1,5 +1,6 @@
 PyGithub
 streamlit
 pandas
-st-gsheets-connection
+numpy
+plotly
 requests
