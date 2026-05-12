@@ -1132,7 +1132,7 @@ def main():
             
                 # 2. Format new data (Replace commas to prevent CSV corruption)
                 clean_comment = comment.replace(",", ";").replace("\n", " ")
-                new_row = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')},{rating},{match},{clean_comment}\n"
+                new_row = f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')},{rating},{match},{clean_comment}\n"
             
                 # 3. Get existing file content
                 response = requests.get(URL, headers=HEADERS)
