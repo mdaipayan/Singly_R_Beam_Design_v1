@@ -92,7 +92,7 @@ def get_tau_c_max(fck: int) -> float:
 #______________Figure Function______________________________________________
 def plot_cross_section(b, D, cover, n_bars, bar_dia, stir_dia):
     """Generates a scaled cross-section diagram of the designed beam."""
-    fig, ax = plt.subplots(figsize=(5, 6))
+    fig, ax = plt.subplots(figsize=(2, 3))
     
     # 1. Concrete Cross-Section
     concrete = patches.Rectangle((0, 0), b, D, linewidth=2, edgecolor='black', facecolor='#f4f4f4')
