@@ -1108,7 +1108,7 @@ def main():
     # ── Feedback Form ──────────────────────────────────────────────────────────
     st.divider()
     st.subheader("📝 Student Research Feedback")
-    st.write("Help me improve this tool for my research paper by providing quick feedback.")
+    st.write("Help me improve this tool by providing quick feedback.")
 
     with st.form("research_feedback"):
         col1, col2 = st.columns(2)
