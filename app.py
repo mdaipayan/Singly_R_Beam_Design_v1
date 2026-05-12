@@ -14,6 +14,8 @@ from pathlib import Path
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import streamlit as st
+import requests
+import base64
 
 # ─── IS 456:2000 Constants ────────────────────────────────────────────────────
 
@@ -1109,7 +1111,6 @@ def main():
     st.subheader("📝 Student Research Feedback")
     st.write("Help me improve this tool for my research paper by providing quick feedback.")
 
-    # FIXED: Indentation is now properly contained within the form block
     with st.form("research_feedback"):
         col1, col2 = st.columns(2)
         with col1:
@@ -1122,29 +1123,53 @@ def main():
     
         if submit:
             try:
-                # Connection is established only when submit is clicked
-                conn = st.connection("gsheets", type=GSheetsConnection)
+                # 1. Configuration
+                GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
+                # Updated to your actual repo path
+                REPO = "mdaipayan/Singly_R_Beam_Design_v1" 
+                FILE_PATH = "feedback.csv"
+                URL = f"https://api.github.com/repos/{REPO}/contents/{FILE_PATH}"
+                HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+            
+                # 2. Format new data (Replace commas to prevent CSV corruption)
+                clean_comment = comment.replace(",", ";").replace("\n", " ")
+                new_row = f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')},{rating},{match},{clean_comment}\n"
+            
+                # 3. Get existing file content
+                response = requests.get(URL, headers=HEADERS)
                 
-                new_data = pd.DataFrame([{
-                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "Rating": rating,
-                    "Manual_Match": match,
-                    "Comments": comment
-                }])
+                if response.status_code == 200:
+                    content = response.json()
+                    sha = content['sha']
+                    old_csv = base64.b64decode(content['content']).decode('utf-8')
+                    updated_csv = old_csv + new_row
+                else:
+                    sha = None
+                    updated_csv = "Timestamp,Rating,Match,Comment\n" + new_row
+            
+                # 4. Push update to GitHub
+                content_encoded = base64.b64encode(updated_csv.encode('utf-8')).decode('utf-8')
                 
-                existing_data = conn.read(worksheet="Sheet1")
-                updated_df = pd.concat([existing_data, new_data], ignore_index=True)
-                conn.update(worksheet="Sheet1", data=updated_df)
-
-                # Remember that feedback was submitted
-                st.session_state["feedback_submitted"] = True
-                
+                data = {
+                    "message": "Update feedback.csv via app",
+                    "content": content_encoded,
+                }
+                if sha:
+                    data["sha"] = sha
+            
+                res = requests.put(URL, headers=HEADERS, json=data)
+            
+                if res.status_code in [200, 201]:
+                    st.success("Feedback saved directly to GitHub CSV!")
+                    st.session_state["feedback_submitted"] = True
+                else:
+                    st.error(f"GitHub Error: {res.status_code} - {res.text}")
             except Exception as e:
-                st.error("Could not reach the database at this time. Please try again later.")
+                st.error(f"Error: {e}")
                 
-        # Display the success message if it exists in session state
-        if st.session_state.get("feedback_submitted", False):
-            st.success("Feedback recorded! Thank you for contributing to the research.")    
+    if st.session_state.get("feedback_submitted", False):
+        st.info("Feedback recorded! Thank you for contributing to the research.")    
 
+# This must be at the very bottom, at zero indentation
 if __name__ == "__main__":
     main()
