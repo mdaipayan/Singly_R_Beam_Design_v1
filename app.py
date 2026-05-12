@@ -11,7 +11,6 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import streamlit as st
 import requests
