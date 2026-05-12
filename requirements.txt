@@ -2,3 +2,4 @@ streamlit
 pandas
 requests
 st-gsheets-connection
+matplotlib>=3.7.0
