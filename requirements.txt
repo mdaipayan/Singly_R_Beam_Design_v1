@@ -1,3 +1,4 @@
+PyGithub
 streamlit
 pandas
 st-gsheets-connection
