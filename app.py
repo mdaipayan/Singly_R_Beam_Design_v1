@@ -15,6 +15,8 @@ import pandas as pd
 import streamlit as st
 import requests
 import base64
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 # ─── IS 456:2000 Constants ────────────────────────────────────────────────────
 
@@ -26,6 +28,16 @@ XU_MAX_RATIO = {
     500: 0.456,
     550: 0.444,
 }
+
+# IS 456 / SP-16 Table for Design Stress in Compression Reinforcement (fsc) in N/mm^2
+# Mapped by steel grade (fy) and d'/d ratio. (Approximated for 0.1 ratio for simplicity)
+FSC_DICT = {
+    250: 217,  # 0.87 * fy is constant for Fe250
+    415: 342,  # Assuming d'/d approx 0.1
+    500: 412,  # Assuming d'/d approx 0.1
+    550: 441   # Assuming d'/d approx 0.1
+}
+
 
 # IS 456:2000, Table 19 — Design shear strength τc (N/mm²) of concrete
 TAU_C_TABLE = [
@@ -122,6 +134,47 @@ def design_beam(inp: dict):
         add(f"      Value       : {value:.4f} {unit}")
         add()
 
+
+    #______________Figure Function______________________________________________
+    
+    def plot_cross_section(b, D, cover, n_bars, bar_dia, stir_dia):
+        """Generates a scaled cross-section diagram of the designed beam."""
+        fig, ax = plt.subplots(figsize=(5, 6))
+    
+        # 1. Concrete Cross-Section
+        concrete = patches.Rectangle((0, 0), b, D, linewidth=2, edgecolor='black', facecolor='#f4f4f4')
+        ax.add_patch(concrete)
+    
+        # 2. Stirrup (Dashed Red Line)
+        stirrup_w = b - 2 * cover
+        stirrup_h = D - 2 * cover
+        stirrup = patches.Rectangle((cover, cover), stirrup_w, stirrup_h, 
+                                    linewidth=1.5, edgecolor='red', facecolor='none', linestyle='--')
+        ax.add_patch(stirrup)
+    
+        # 3. Main Tension Bars (Bottom Blue Circles)
+        eff_width = stirrup_w - 2 * stir_dia - bar_dia
+        spacing = eff_width / (n_bars - 1) if n_bars > 1 else 0
+    
+        start_x = cover + stir_dia + bar_dia / 2
+        start_y = cover + stir_dia + bar_dia / 2
+    
+        for i in range(n_bars):
+            bar_x = start_x + i * spacing
+            bar = patches.Circle((bar_x, start_y), bar_dia / 2, color='#1f77b4', zorder=3)
+            ax.add_patch(bar)
+    
+        # Formatting the plot to look like an engineering drawing
+        ax.set_xlim(-50, b + 50)
+        ax.set_ylim(-50, D + 50)
+        ax.set_aspect('equal')
+        ax.axis('off')
+        plt.title(f"Cross-Section: {b} x {D} mm\nBottom Steel: {n_bars} — {bar_dia}φ", fontsize=11, pad=10)
+    
+        return fig
+
+
+    
     # ── Unpack ────────────────────────────────────────────────────────────────
     L        = inp["span"]       # m
     w_DL     = inp["w_DL"]      # kN/m
@@ -229,79 +282,72 @@ def design_beam(inp: dict):
     add(f"      → Mᵤ,lim = {Mu_lim:.2f} N·mm")
     add()
 
-    # ── Step 4: Section Adequacy ──────────────────────────────────────────────
+# ── Step 4: Section Adequacy ──────────────────────────────────────────────
     hdr("STEP 4 — SECTION ADEQUACY CHECK")
     add(f"  Factored Moment   Mᵤ      = {Mu / 1.0e6:.4f} kN·m")
     add(f"  Limiting Moment   Mᵤ,lim  = {Mu_lim / 1.0e6:.4f} kN·m")
     add()
 
-    if Mu > Mu_lim:
-        add("  ✗ Mᵤ > Mᵤ,lim")
-        add("    Section is INADEQUATE for singly reinforced beam design.")
-        add("    → Increase total depth D, or adopt a doubly reinforced section.")
-        add("    Design aborted. Revise inputs and re-run.")
-        return None, lines
+    d_prime = cover + stir_dia + (bar_dia / 2.0)
 
-    add("  ✓ Mᵤ ≤ Mᵤ,lim")
-    add("    Section is ADEQUATE — proceed with singly reinforced design.")
-    add()
+    if Mu <= Mu_lim:
+        design_type = "Singly Reinforced"
+        add("  ✓ Mᵤ ≤ Mᵤ,lim")
+        add("    Section is ADEQUATE — proceed with singly reinforced design.")
+        add()
 
-    # ── Step 5: Area of Tension Steel (Ast) ───────────────────────────────────
-    hdr("STEP 5 — AREA OF TENSION STEEL (Aₛₜ)")
+        # ── Step 5: Area of Tension Steel (Ast) ───────────────────────────────────
+        hdr("STEP 5 — AREA OF TENSION STEEL (Aₛₜ)")
+        add("  From IS 456:2000, Annex G, Cl. G-1.1a:")
+        add("    Mᵤ = 0.87 × fy × Aₛₜ × [d − (Aₛₜ × fy) / (fck × b)]")
+        add()
+        
+        A_q = (0.87 * fy ** 2) / (fck * b)
+        B_q = -(0.87 * fy * d)
+        C_q = Mu
 
-    add("  From IS 456:2000, Annex G, Cl. G-1.1a:")
-    add("    Mᵤ = 0.87 × fy × Aₛₜ × [d − (Aₛₜ × fy) / (fck × b)]")
-    add()
-    add("  Expanding and rearranging into standard quadratic form A·Aₛₜ² + B·Aₛₜ + C = 0:")
-    add()
-    add("    0.87×fy²         ")
-    add("    ─────────  × Aₛₜ²  −  0.87×fy×d × Aₛₜ  +  Mᵤ  =  0")
-    add("     fck × b         ")
-    add()
+        discriminant = B_q ** 2 - 4.0 * A_q * C_q
+        if discriminant < 0:
+            add("  ✗ Discriminant < 0 → No real solution. Section requires revision.")
+            return None, lines
 
-    A_q = (0.87 * fy ** 2) / (fck * b)
-    B_q = -(0.87 * fy * d)
-    C_q = Mu
+        Ast1 = (-B_q - math.sqrt(discriminant)) / (2.0 * A_q)
+        add(f"  → Required Aₛₜ = {Ast1:.4f} mm² (using quadratic solution)")
+        add()
+        
+        Ast_req = Ast1
+        Asc_req = 0.0
 
-    add(f"  Coefficients:")
-    add(f"    A = 0.87 × fy² / (fck × b)")
-    add(f"      = 0.87 × {fy}² / ({fck} × {b})")
-    add(f"      = {A_q:.6f}")
-    add()
-    add(f"    B = −0.87 × fy × d")
-    add(f"      = −0.87 × {fy} × {d:.4f}")
-    add(f"      = {B_q:.4f}")
-    add()
-    add(f"    C = Mᵤ = {C_q:.4f} N·mm")
-    add()
+    else:
+        design_type = "Doubly Reinforced"
+        add("  ! Mᵤ > Mᵤ,lim")
+        add("    Section requires compression steel — proceed with doubly reinforced design.")
+        add()
 
-    discriminant = B_q ** 2 - 4.0 * A_q * C_q
-    add(f"  Discriminant  Δ = B² − 4AC")
-    add(f"    Δ = ({B_q:.4f})² − 4 × {A_q:.6f} × {C_q:.4f}")
-    add(f"    Δ = {B_q**2:.4f} − {4*A_q*C_q:.4f}")
-    add(f"    Δ = {discriminant:.4f}")
-    add()
+        # ── Step 5: Area of Tension & Compression Steel ───────────────────────────
+        hdr("STEP 5 — AREA OF TENSION AND COMPRESSION STEEL")
+        add("  [IS 456:2000, Annex G, Cl. G-1.2]")
+        add()
 
-    if discriminant < 0:
-        add("  ✗ Discriminant < 0 → No real solution. Section requires revision.")
-        return None, lines
+        Ast1 = (0.36 * fck * b * xu_max) / (0.87 * fy)
+        step("Tension Steel for Limiting Moment (Aₛₜ₁)", "(0.36 × fck × b × xᵤ,max) / (0.87 × fy)", "", Ast1, "mm²")
 
-    Ast1 = (-B_q - math.sqrt(discriminant)) / (2.0 * A_q)
-    Ast2 = (-B_q + math.sqrt(discriminant)) / (2.0 * A_q)
+        Mu2 = Mu - Mu_lim
+        step("Excess Moment (Mᵤ₂)", "Mᵤ − Mᵤ,lim", "", Mu2 / 1.0e6, "kN·m")
 
-    add(f"  Roots of quadratic:")
-    add(f"    Aₛₜ  =  (−B ± √Δ) / (2A)")
-    add()
-    add(f"    Aₛₜ₁ = (−({B_q:.4f}) − √{discriminant:.4f}) / (2 × {A_q:.6f})")
-    add(f"         = {Ast1:.4f} mm²    ← valid (smaller, under-reinforced)")
-    add()
-    add(f"    Aₛₜ₂ = (−({B_q:.4f}) + √{discriminant:.4f}) / (2 × {A_q:.6f})")
-    add(f"         = {Ast2:.4f} mm²    ← exceeds balanced condition, reject")
-    add()
-    add(f"  → Required Aₛₜ  =  {Ast1:.4f} mm²")
-    add()
+        # Compression steel stress (fsc) and concrete equivalent (fcc)
+        fsc = FSC_DICT.get(fy, 0.87 * fy)
+        fcc = 0.45 * fck
+        
+        Asc_req = Mu2 / ((fsc - fcc) * (d - d_prime))
+        step("Required Compression Steel (Aₛ꜀)", "Mᵤ₂ / [(fsc − 0.45 fck) × (d − d')]", "", Asc_req, "mm²")
 
-    Ast_req = Ast1
+        Ast2 = (Asc_req * (fsc - fcc)) / (0.87 * fy)
+        step("Additional Tension Steel (Aₛₜ₂)", "Aₛ꜀ × (fsc − 0.45 fck) / (0.87 × fy)", "", Ast2, "mm²")
+
+        Ast_req = Ast1 + Ast2
+        add(f"  → Total Tension Steel Required Aₛₜ = Aₛₜ₁ + Aₛₜ₂ = {Ast_req:.4f} mm²")
+        add()
 
     # ── Step 6: Min/Max Steel Check ───────────────────────────────────────────
     hdr("STEP 6 — MINIMUM AND MAXIMUM STEEL CHECK")
@@ -652,10 +698,12 @@ def design_beam(inp: dict):
     add()
 
     results = {
+        "design_type": design_type,
         "d": d,
         "Mu": Mu,
         "Mu_lim": Mu_lim,
         "Ast_req": Ast_design,
+        "Asc_req": Asc_req,
         "Ast_prov": Ast_prov,
         "n_bars": n_bars,
         "bar_dia": bar_dia,
@@ -1059,22 +1107,38 @@ def main():
         return
 
     # ── KPI Cards ─────────────────────────────────────────────────────────────
-    st.subheader("🔢 Key Design Values")
+    st.subheader(f"🔢 Key Design Values ({results['design_type']})")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Effective Depth (d)", f"{results['d']:.0f} mm")
     c2.metric("Aₛₜ Required", f"{results['Ast_req']:.0f} mm²")
-    c3.metric("Aₛₜ Provided", f"{results['Ast_prov']:.0f} mm²")
+    
+    if results['design_type'] == "Doubly Reinforced":
+        c3.metric("Aₛ꜀ Required (Top)", f"{results['Asc_req']:.0f} mm²", delta="Doubly Reinf.", delta_color="inverse")
+    else:
+        c3.metric("Aₛ꜀ Required", "0 mm²")
+        
     c4.metric("Tension Steel", f"{results['n_bars']} — {results['bar_dia']}φ")
 
     c5, c6, c7, c8 = st.columns(4)
     util = results["Mu"] / results["Mu_lim"] * 100
-    c5.metric("Mᵤ / Mᵤ,lim", f"{util:.1f}%", delta="Under-reinforced ✓" if util <= 100 else None)
+    c5.metric("Mᵤ / Mᵤ,lim", f"{util:.1f}%", delta="Under-reinforced ✓" if util <= 100 else "Doubly Reinforced !    ")
     c6.metric("τᵥ / τc  (N/mm²)", f"{results['tau_v']:.3f} / {results['tau_c']:.3f}")
     c7.metric("L/d  Actual / Perm.", f"{results['ld_actual']:.2f} / {results['ld_perm']:.2f}")
     c8.metric("Deflection", "PASS ✓" if results["deflection_ok"] else "FAIL ✗")
 
     st.markdown("---")
 
+     
+    # ── Visual Analytics ───────────────────────────────────────────────────────
+    st.subheader("📊 Visual Analytics")
+    with st.expander("View Beam Cross-Section", expanded=True):
+        fig = plot_cross_section(b, D, cover, results['n_bars'], results['bar_dia'], stir_dia)
+        st.pyplot(fig)
+        st.caption("Cross-section drawn to scale. Useful for direct export to LaTeX manuscripts.")
+
+
+
+    
     # ── Detailed Report ────────────────────────────────────────────────────────
     st.subheader("📋 Detailed Step-by-Step Design Report")
     st.code(report_text, language="text")
